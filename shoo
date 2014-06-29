@@ -154,7 +154,7 @@ release_resource() {
     # try to do some intelligent guessing
     if [[ "$type_" = "$from" ]]; then
         name="$type_"
-        type_=$(is_int "$name" && echo 'type' || echo 'file')
+        type_=$(is_int "$name" && echo 'tcp' || echo 'file')
         warnf "Resource type not specified, assuming '%s'" "$type_"
     fi
 
@@ -173,14 +173,30 @@ release_resource() {
             ;;
     esac
 
+    # filter it through --name/--pid constraints, if any
+    local filtered=true
+    if [[ -n "$pname" ]]; then
+        procs=$(intersection "$procs" $(pgrep "$pname"))
+    elif [[ "$pid" -gt 0 ]]; then
+        procs=$(intersection "$procs" "$pid")
+    else
+        filtered=false
+    fi
+    procs=$(trim "$procs")
+
     # shoo them!
     local proc_count="${#procs[@]}"
-    if [[ "$proc_count" -eq 0 ]]; then
-        warnf "No processes are currently using resource '%s'" "$from"
+    if [[ "$proc_count" -eq 0 ]] || [[ -z "$procs" ]]; then
+        # TODO(xion): figure out why the part after || is needed in `if` above
+        if [[ $filtered = true ]]; then
+            warnf "No processes matching given criteria"
+        else
+            warnf "No processes are currently using resource '%s'" "$from"
+        fi
         exit 0
     else
         echo "$procs" | xargs kill $kill_flags
-        if [[ "$proc_count" -gt 1 ]]; then
+        if [[ "$proc_count" -gt 1 ]] || [[ $filtered = true ]]; then
             infof "%s processes shoo'd" "$proc_count"
         fi
     fi
@@ -227,6 +243,15 @@ split() {
     local arg="$1"; shift
     local delim="$1"; shift
     IFS="$delim" read -r "$@" <<< "$arg"
+}
+
+trim() {
+    echo "$1" | sed -e 's/^ *//' -e 's/ *$//'
+}
+
+intersection() {
+    # Compute intersection of lists given as arguments
+    echo "$@" | tr ' ' '\n' | sort | uniq -d
 }
 
 
