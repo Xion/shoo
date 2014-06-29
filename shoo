@@ -13,16 +13,25 @@
 #   $ shoo --from tcp:8080  # get rid of processes listening on TCP port 8080
 
 
+# Variables storing command line input data
+pname=""
+pid=0
+from=""
+
+
 main() {
     parse_cmdline "$@"
+    validate_args
 }
 
 
-parse_cmdline() {
-    local pname=""
-    local pid=0
-    local from=""
+# Command line handling
 
+usage() {
+    echo >&2 "usage: shoo [[--pid|--name] process] [--from resource]"
+}
+
+parse_cmdline() {
     # handle command line flags first (both short and long form)
     # (based on http://mywiki.wooledge.org/BashFAQ/035)
     while :
@@ -70,7 +79,9 @@ parse_cmdline() {
             fi
         fi
     fi
+}
 
+validate_args() {
     # if nothing was supplied, display usage help and quit
     if [[ -z "$pname" ]] && [[ "$pid" -eq 0 ]] && [[ -z "$from" ]]; then
         usage
@@ -82,11 +93,6 @@ parse_cmdline() {
         errf 'ERROR: Specify either a process name or PID, not both\n'
         exit 1
     fi
-}
-
-
-usage() {
-    echo >&2 "usage: shoo [[--pid|--name] process] [--from resource]"
 }
 
 
