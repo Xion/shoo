@@ -12,6 +12,7 @@
 #   $ shoo --from ./foo.txt  # get rid of processes hogging the ./foo.txt file
 #   $ shoo --from  file:./foo.txt  # full form of the command above
 #   $ shoo --from tcp:8080  # get rid of processes listening on TCP port 8080
+#   $ shoo --from tcp:8080 python  # get rid of Python processes listening on TCP port 8080
 #   $ shoo --pid 642 --with int  # specify what signal to send to the process
 
 
@@ -94,6 +95,8 @@ parse_cmdline() {
                 exit 1
             fi
         else
+            # TODO(xion): interpret obvious filenames (/foo, ./foo, etc.)
+            # as file: resources, allowing `shoo ./foo`
             if [[ -z "$pname" ]]; then
                 pname="$desc"
             else
