@@ -49,7 +49,7 @@ main() {
 # Command line handling
 
 usage() {
-    logf "usage: shoo [[--pid|--name] process] [--from resource] [--with signal]"
+    logf "usage: shoo [[--pid|--name] process] [--from resource] [--with signal]\n"
 }
 
 parse_cmdline() {
@@ -106,6 +106,7 @@ parse_cmdline() {
     fi
 
     # warn about any extraneous arguments, as they'll be ignored
+    # TODO(xion): allow for positional arguments to be interleaved with flags
     if [[ -n "$1" ]]; then
         errf 'WARN: Ignoring extraneous arguments: %s' "$*"
     fi
@@ -149,14 +150,26 @@ release_resource() {
     local type_ name
     split "$from" ':' type_ name
 
+    # if resource type wasn't explicitly specified,
+    # try to do some intelligent guessing
+    if [[ "$type_" = "$from" ]]; then
+        name="$type_"
+        type_=$(is_int "$name" && echo 'type' || echo 'file')
+        warnf "Resource type not specified, assuming '%s'" "$type_"
+    fi
+
     # retireve PIDs of processes that squat given resource
     local procs
     case $(lowercase "$type_") in
         tcp | udp)
             procs=$(lsof -t -i "$type_:$name")
             ;;
-        file | *)
+        file)
             procs=$(lsof -t "$name")
+            ;;
+        *)
+            errf "Unknown resource type: %s" "$type_"
+            exit 1
             ;;
     esac
 
