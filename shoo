@@ -12,6 +12,7 @@
 #   $ shoo --from ./foo.txt  # get rid of processes hogging the ./foo.txt file
 #   $ shoo --from  file:./foo.txt  # full form of the command above
 #   $ shoo --from tcp:8080  # get rid of processes listening on TCP port 8080
+#   $ shoo --pid 642 --with int  # specify what signal to send to the process
 
 
 SIGNALS="int term kill 2 15 9"
@@ -23,7 +24,7 @@ from=""
 with=""
 
 # Other data
-kill_signal_flag=""
+kill_flags=""
 
 
 main() {
@@ -32,9 +33,9 @@ main() {
 
     # format the signal flag to kill/killall
     if [[ -n "$with" ]]; then
-        kill_signal_flag="-$with"
+        kill_flags="-$with"
     else
-        kill_signal_flag="-9"  # NO REMORSE
+        kill_flags="-9"  # NO REMORSE
     fi
 
     if [[ -z "$from" ]]; then
@@ -48,7 +49,7 @@ main() {
 # Command line handling
 
 usage() {
-    echo >&2 "usage: shoo [[--pid|--name] process] [--from resource] [--with signal]"
+    logf "usage: shoo [[--pid|--name] process] [--from resource] [--with signal]"
 }
 
 parse_cmdline() {
@@ -75,7 +76,7 @@ parse_cmdline() {
             --with=*)       with=${1#*=}; shift ;;
 
             --) shift; break;;  # end of options
-            -*) errf 'WARN: Unknown option: %s (ignored)\n' "$1"; shift;;
+            -*) warnf 'Unknown option: %s (ignored)\n' "$1"; shift;;
             *)  break;;  # non-option, also end
         esac
     done
@@ -88,15 +89,14 @@ parse_cmdline() {
             if [[ "$pid" -eq 0 ]]; then
                 pid="$desc"
             else
-                errf 'ERROR: Duplicate value for PID: %s and %s\n' \
-                    "$pid" "$desc"
+                errf 'Duplicate value for PID: %s and %s' "$pid" "$desc"
                 exit 1
             fi
         else
             if [[ -z "$pname" ]]; then
                 pname="$desc"
             else
-                errf 'ERROR: Duplicate value for process name: "%s" and "%s"\n' \
+                errf 'Duplicate value for process name: "%s" and "%s"' \
                     "$pname" "$desc"
                 exit 1
             fi
@@ -107,7 +107,7 @@ parse_cmdline() {
 
     # warn about any extraneous arguments, as they'll be ignored
     if [[ -n "$1" ]]; then
-        errf 'WARN: Ignoring extraneous arguments: %s\n' "$*"
+        errf 'WARN: Ignoring extraneous arguments: %s' "$*"
     fi
 }
 
@@ -120,7 +120,7 @@ validate_input() {
 
     # either a process name or PID can be supplied, but not both
     if [[ -n "$pname" ]] && [[ "$pid" -ne 0 ]]; then
-        errf 'ERROR: Specify either a process name or PID, not both\n'
+        errf 'Specify either a process name or PID, not both'
         exit 1
     fi
 
@@ -128,7 +128,7 @@ validate_input() {
     # that can actually end the target process
     if [[ -n "$with" ]]; then
         if ! contains "$SIGNALS" $(lowercase "$with"); then
-            errf 'WARN: Signal "%s" may not necessarily end the target process\n' \
+            warnf 'Signal "%s" may not necessarily end the target process' \
                 "$with"
         fi
     fi
@@ -139,17 +139,57 @@ validate_input() {
 
 kill_specific_process() {
     if [[ -n "$pname" ]]; then
-        killall $kill_signal_flag "$pname"
+        killall $kill_flags "$pname"
     else
-        kill $kill_signal_flag "$pid"
+        kill $kill_flags "$pid"
+    fi
+}
+
+release_resource() {
+    local type_ name
+    split "$from" ':' type_ name
+
+    # retireve PIDs of processes that squat given resource
+    local procs
+    case $(lowercase "$type_") in
+        tcp | udp)
+            procs=$(lsof -t -i "$type_:$name")
+            ;;
+        file | *)
+            procs=$(lsof -t "$name")
+            ;;
+    esac
+
+    # shoo them!
+    local proc_count="${#procs[@]}"
+    if [[ "$proc_count" -eq 0 ]]; then
+        warnf "No processes are currently using resource '%s'" "$from"
+        exit 0
+    else
+        echo "$procs" | xargs kill $kill_flags
+        if [[ "$proc_count" -gt 1 ]]; then
+            infof "%s processes shoo'd" "$proc_count"
+        fi
     fi
 }
 
 
 # Utility functions
 
-errf() {
+logf() {
     printf >&2 "$@"
+}
+errf() {
+    local fmt="$1"; shift
+    logf "ERROR: $fmt\n" "$@"
+}
+warnf() {
+    local fmt="$1"; shift
+    logf "WARN: $fmt\n" "$@"
+}
+infof() {
+    local fmt="$1"; shift
+    logf "INFO: $fmt\n" "$@"
 }
 
 is_int() {
@@ -167,6 +207,13 @@ contains() {
 
 lowercase() {
     echo "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+split() {
+    # Split a string $1 by deliiter $2 into given variables
+    local arg="$1"; shift
+    local delim="$1"; shift
+    IFS="$delim" read -r "$@" <<< "$arg"
 }
 
 
