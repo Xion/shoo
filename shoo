@@ -1,0 +1,107 @@
+#!/bin/sh
+
+# Shoo -- `kill` on steroids
+# by Karol Kuczmarski "Xion"
+
+# Example usage:
+#   $ shoo 642  # get rid of process with given PID
+#   $ shoo --pid 642  # full form of the command above
+#   $ shoo chrome  # get rid of processes with given name
+#   $ shoo --name chrome  # full form of the command above
+#   $ shoo --from ./foo.txt  # get rid of processes hogging the ./foo.txt file
+#   $ shoo --from  file:./foo.txt  # full form of the command above
+#   $ shoo --from tcp:8080  # get rid of processes listening on TCP port 8080
+
+
+main() {
+    parse_cmdline "$@"
+}
+
+
+parse_cmdline() {
+    local pname=""
+    local pid=0
+    local from=""
+
+    # handle command line flags first (both short and long form)
+    # (based on http://mywiki.wooledge.org/BashFAQ/035)
+    while :
+    do
+        case $1 in
+            --help | -h | -\?)
+                usage
+                exit 0
+                ;;
+
+            --pid | -p) pid=$2; shift 2 ;;
+            --pid=*)    pid=${1#*=}; shift ;;
+
+            --name | -n)    pname=$2; shift 2 ;;
+            --name=*)       pname=${1#*=}; shift ;;
+
+            --from | -f)    from=$2; shift 2 ;;
+            --from=*)       from=${1#*=}; shift ;;
+
+            --) shift; break;;  # end of options
+            -*) errf 'WARN: Unknown option: %s (ignored)\n' "$1"; shift;;
+            *)  break;;  # non-option, also end
+        esac
+    done
+
+    # remaining command line arguments, if any,
+    # are interpreted as either process name or PID
+    if [[ -n "$1" ]]; then
+        local desc="$1"
+        if is_pid "$desc"; then
+            if [[ "$pid" -eq 0 ]]; then
+                pid="$desc"
+            else
+                errf 'ERROR: Duplicate value for PID: %s and %s\n' \
+                    "$pid" "$desc"
+                exit 1
+            fi
+        else
+            if [[ -z "$pname" ]]; then
+                pname="$desc"
+            else
+                errf 'ERROR: Duplicate value for process name: "%s" and "%s"\n' \
+                    "$pname" "$desc"
+                exit 1
+            fi
+        fi
+    fi
+
+    # if nothing was supplied, display usage help and quit
+    if [[ -z "$pname" ]] && [[ "$pid" -eq 0 ]] && [[ -z "$from" ]]; then
+        usage
+        exit 1
+    fi
+
+    # either a process name or PID can be supplied, but not both
+    if [[ -n "$pname" ]] && [[ "$pid" -ne 0 ]]; then
+        errf 'ERROR: Specify either a process name or PID, not both\n'
+        exit 1
+    fi
+}
+
+
+usage() {
+    echo >&2 "usage: shoo [[--pid|--name] process] [--from resource]"
+}
+
+
+# Utility functions
+
+errf() {
+    printf >&2 "$@"
+}
+
+is_pid() {
+    case $1 in
+        ''|*[!0-9]*)    return 1;;  # not a number
+        *)              return 0;;  # a number
+    esac
+}
+
+
+main "$@"
