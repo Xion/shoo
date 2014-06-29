@@ -38,6 +38,7 @@ main() {
         kill_flags="-9"  # NO REMORSE
     fi
 
+    # execute!
     if [[ -z "$from" ]]; then
         kill_specific_process
     else
@@ -147,31 +148,7 @@ kill_specific_process() {
 }
 
 release_resource() {
-    local type_ name
-    split "$from" ':' type_ name
-
-    # if resource type wasn't explicitly specified,
-    # try to do some intelligent guessing
-    if [[ "$type_" = "$from" ]]; then
-        name="$type_"
-        type_=$(is_int "$name" && echo 'tcp' || echo 'file')
-        warnf "Resource type not specified, assuming '%s'" "$type_"
-    fi
-
-    # retireve PIDs of processes that squat given resource
-    local procs
-    case $(lowercase "$type_") in
-        tcp | udp)
-            procs=$(lsof -t -i "$type_:$name")
-            ;;
-        file)
-            procs=$(lsof -t "$name")
-            ;;
-        *)
-            errf "Unknown resource type: %s" "$type_"
-            exit 1
-            ;;
-    esac
+    local procs=$(list_processes_from_resource)
 
     # filter it through --name/--pid constraints, if any
     local filtered=true
@@ -193,13 +170,35 @@ release_resource() {
         else
             warnf "No processes are currently using resource '%s'" "$from"
         fi
-        exit 0
     else
         echo "$procs" | xargs kill $kill_flags
         if [[ "$proc_count" -gt 1 ]] || [[ $filtered = true ]]; then
             infof "%s processes shoo'd" "$proc_count"
         fi
     fi
+}
+
+list_processes_from_resource() {
+    local type_ name
+    split "$from" ':' type_ name
+
+    # if resource type wasn't explicitly specified,
+    # try to do some intelligent guessing
+    if [[ "$type_" = "$from" ]]; then
+        name="$type_"
+        type_=$(is_int "$name" && echo 'tcp' || echo 'file')
+        warnf "Resource type not specified, assuming '%s'" "$type_"
+    fi
+
+    # retireve PIDs of processes that squat given resource
+    case $(lowercase "$type_") in
+        tcp | udp)  lsof -t -i "$type_:$name" ;;
+        file)       lsof -t "$name" ;;
+        *)
+            errf "Unknown resource type: %s" "$type_"
+            exit 1
+            ;;
+    esac
 }
 
 
@@ -250,8 +249,10 @@ trim() {
 }
 
 intersection() {
-    # Compute intersection of lists given as arguments
+    # Compute intersection of lines given as arguments
     echo "$@" | tr ' ' '\n' | sort | uniq -d
+    # TODO(xion): this won't work if lines contain spaces (due to `tr`);
+    # it's not the case for the callers but should be fixed nonetheless
 }
 
 
