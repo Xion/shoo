@@ -1,0 +1,38 @@
+#!/bin/sh
+
+# Tests
+
+test_noop() {
+    printf ""
+}
+
+
+# Test runner
+
+_run_tests() {
+    local file="$1"
+    for func in $(_list_test_functions "$file"); do
+        _logf "Running %s..." "$func"
+        "$func" 2>/dev/null
+        [[ $! -eq 0 ]] && _logf "PASS\n" || _logf "FAIL\n"
+        # TODO(xion): implement --failfast
+    done
+}
+
+_list_test_functions() {
+    _list_functions "$1" | sed -e '\%^test_% !d'
+}
+
+_list_functions() {
+    # Return a list of all functions defined inside a script
+    # TODO(xion): support ``function foo {`` syntax in addition to ``foo() {``
+    cat "$1" | sed \
+        -e '\%^[[:space:]]*[_[:alnum:]]*[(][)][[:space:]]*[{]% !d' \
+        -e 's/[(][)][[:space:]]*[{]//g'
+}
+
+_logf() {
+    printf >&2 "$@"
+}
+
+_run_tests "$0"
