@@ -1,9 +1,33 @@
 #!/bin/sh
 
+# Tests for the shoo script
+
+shopt -s expand_aliases
+
+
+# Setup
+
+SCRIPT='./shoo'
+
+# "Import" the functions defined in tested script,
+# omitting the last line that actually executes it
+eval "$(head -n $(($(cat $SCRIPT | wc -l) - 1)) $SCRIPT)"
+shoo() {
+    main "$@" 2>&1  # redirection simplifies calls inside tests
+}
+
+
+# Utilities
+
+alias assert='"$@" || exit 1'
+
+
 # Tests
 
-test_noop() {
-    printf ""
+test_no_args() {
+    local out=$(shoo)
+    assert [[ $! -gt 0 ]]
+    assert contains "$out" 'usage'
 }
 
 
@@ -14,7 +38,7 @@ _run_tests() {
     for func in $(_list_test_functions "$file"); do
         _logf "Running %s..." "$func"
         "$func" 2>/dev/null
-        [[ $! -eq 0 ]] && _logf "PASS\n" || _logf "FAIL\n"
+        [[ $! -eq 0 ]] && _logf " PASS\n" || _logf " FAIL\n"
         # TODO(xion): implement --failfast
     done
 }
