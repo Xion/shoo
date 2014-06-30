@@ -61,6 +61,8 @@ parse_cmdline() {
     do
         case $1 in
             --help | -h | -\?)
+                # TODO(xion): print more extensive help
+                # that explains all the command line flags
                 usage
                 exit 0
                 ;;
@@ -77,39 +79,37 @@ parse_cmdline() {
             --with | -w)    with=$2; shift 2 ;;
             --with=*)       with=${1#*=}; shift ;;
 
-            -*) warnf 'Unknown option: %s (ignored)' "$1"; shift;;
+            -*) warnf 'Unknown option: %s (ignored)' "$1"; shift ;;
             *)
+                if [[ -z "$1" ]]; then break; fi
+
                 # non-option, i.e. a positional argument;
                 # this is typically a process name or PID
-                if [[ -n "$1" ]]; then
-                    local arg="$1"
-                    if is_int "$arg"; then
-                        if [[ "$pid" -eq 0 ]]; then
-                            pid="$arg"
+                local arg="$1"
+                if is_int "$arg"; then
+                    if [[ "$pid" -eq 0 ]]; then
+                        pid="$arg"
+                    else
+                        errf 'Duplicate value for %s: %s and %s' \
+                            'PID' "$pid" "$arg"
+                        exit 1
+                    fi
+                else
+                    if contains "$arg" '/' && [[ -z "$from" ]]; then
+                        infof "Interpreting '%s' as --from=file:%s" "$arg"
+                        from="file:$arg"
+                    else
+                        if [[ -z "$pname" ]]; then
+                            pname="$arg"
                         else
-                            errf 'Duplicate value for %s: %s and %s' \
-                                'PID' "$pid" "$arg"
+                            errf 'Duplicate value for %s: "%s" and "%s"' \
+                                'process name' "$pname" "$arg"
                             exit 1
                         fi
-                    else
-                        if contains "$arg" '/' && [[ -z "$from" ]]; then
-                            infof "Interpreting '%s' as --from=file:%s" "$arg"
-                            from="file:$arg"
-                        else
-                            if [[ -z "$pname" ]]; then
-                                pname="$arg"
-                            else
-                                errf 'Duplicate value for %s: "%s" and "%s"' \
-                                    'process name' "$pname" "$arg"
-                                exit 1
-                            fi
-                        fi
                     fi
-
-                    shift
-                else
-                    break
                 fi
+
+                shift
                 ;;
         esac
     done
