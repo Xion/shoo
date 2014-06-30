@@ -12,8 +12,8 @@
 #   $ shoo --from ./foo.txt  # get rid of processes hogging the ./foo.txt file
 #   $ shoo --from  file:./foo.txt  # full form of the command above
 #   $ shoo --from tcp:8080  # get rid of processes listening on TCP port 8080
-#   $ shoo --from tcp:8080 python  # get rid of Python processes listening on TCP port 8080
-#   $ shoo --pid 642 --with int  # specify what signal to send to the process
+#   $ shoo python --from tcp:8080  # get rid of Python processes listening on TCP port 8080
+#   $ shoo 642 --with int  # specify what signal to send to the process
 
 
 SIGNALS="int term kill 2 15 9"
