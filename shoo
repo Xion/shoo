@@ -83,8 +83,8 @@ parse_cmdline() {
         esac
     done
 
-    # remaining command line arguments, if any,
-    # are interpreted as either process name or PID
+    # interpret remaining command line arguments, if any;
+    # this is typically a process name or PID
     if [[ -n "$1" ]]; then
         local desc="$1"
         if is_int "$desc"; then
@@ -94,9 +94,10 @@ parse_cmdline() {
                 errf 'Duplicate value for PID: %s and %s' "$pid" "$desc"
                 exit 1
             fi
+        elif contains "$desc" '/' && [[ -z "$from" ]]; then
+            infof "Interpreting '%s' as --from=file:%s" "$desc"
+            from="file:$desc"
         else
-            # TODO(xion): interpret obvious filenames (/foo, ./foo, etc.)
-            # as file: resources, allowing `shoo ./foo`
             if [[ -z "$pname" ]]; then
                 pname="$desc"
             else
