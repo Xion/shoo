@@ -13,21 +13,33 @@ SCRIPT='./shoo'
 # omitting the last line that actually executes it
 eval "$(head -n $(($(cat $SCRIPT | wc -l) - 1)) $SCRIPT)"
 shoo() {
-    main "$@" 2>&1  # redirection simplifies calls inside tests
+    "$SCRIPT" "$@" 2>&1  # redirection simplifies calls inside tests
+    return $?
 }
 
 
 # Utilities
 
-alias assert='"$@" || exit 1'
+FAIL=1023  # arbitrary
+alias fail='return $FAIL'
+alias assertExitSuccess='[[ $? -eq 0 ]] || fail'
+alias assertExitFailure='[[ $? -gt 0 ]] || fail'
 
 
 # Tests
 
 test_no_args() {
     local out=$(shoo)
-    assert [[ $! -gt 0 ]]
-    assert contains "$out" 'usage'
+    assertExitFailure
+    contains "$out" 'usage' || fail
+}
+
+test_help() {
+    for flag in --h --help -?; do
+        local out=$(shoo "$flag")
+        assertExitSuccess
+        contains "$out" 'usage' || fail
+    done
 }
 
 
@@ -38,7 +50,11 @@ _run_tests() {
     for func in $(_list_test_functions "$file"); do
         _logf "Running %s..." "$func"
         "$func" 2>/dev/null
-        [[ $! -eq 0 ]] && _logf " PASS\n" || _logf " FAIL\n"
+        case $? in
+            0)      _logf " PASS\n" ;;
+            $FAIL)  _logf " FAIL\n" ;;
+            *)      _logf " ERROR\n" ;;
+        esac
         # TODO(xion): implement --failfast
     done
 }
