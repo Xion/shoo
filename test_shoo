@@ -14,7 +14,6 @@ SCRIPT='./shoo'
 eval "$(head -n $(($(cat $SCRIPT | wc -l) - 1)) $SCRIPT)"
 shoo() {
     "$SCRIPT" "$@" 2>&1  # redirection simplifies calls inside tests
-    return $?
 }
 
 
@@ -23,20 +22,24 @@ shoo() {
 FAIL=1023  # arbitrary
 alias fail='return $FAIL'
 alias assertExitSuccess='[[ $? -eq 0 ]] || fail'
-alias assertExitFailure='[[ $? -gt 0 ]] || fail'
+alias assertExitFailure='! [[ $? -eq 0 ]] || fail'
 
 
 # Tests
 
+# Variable to assign tested command output's to
+# (for asssertions on the command's exit code to work, it MUST be global (!))
+out=""
+
 test_no_args() {
-    local out=$(shoo)
+    out=$(shoo)
     assertExitFailure
     contains "$out" 'usage' || fail
 }
 
 test_help() {
-    for flag in --h --help -?; do
-        local out=$(shoo "$flag")
+    for flag in -h --help -?; do
+        out=$(shoo "$flag")
         assertExitSuccess
         contains "$out" 'usage' || fail
     done
@@ -55,6 +58,7 @@ _run_tests() {
             $FAIL)  _logf " FAIL\n" ;;
             *)      _logf " ERROR\n" ;;
         esac
+        # TODO(xion): gather failed/error'd tests' output to display at the end
         # TODO(xion): implement --failfast
     done
 }
