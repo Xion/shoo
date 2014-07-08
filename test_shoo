@@ -28,7 +28,7 @@ alias assertExitFailure='! [[ $? -eq 0 ]] || fail'
 # Tests
 
 # Variable to assign tested command output's to
-# (for asssertions on the command's exit code to work, it MUST be global (!))
+# (for asssertions on the command's exit code to work, it must be global)
 out=""
 
 test_no_args() {
@@ -43,6 +43,12 @@ test_help() {
         assertExitSuccess
         contains "$out" 'usage' || fail
     done
+}
+
+test_unknown_option() {
+    out=$(shoo --not-an-option)
+    assertExitFailure
+    contains "$(lowercase "$out")" 'unknown option' || fail
 }
 
 

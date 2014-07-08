@@ -242,7 +242,7 @@ lowercase() {
 }
 
 split() {
-    # Split a string $1 by deliiter $2 into given variables
+    # Split a string $1 by delimiter $2 into given variables
     local arg="$1"; shift
     local delim="$1"; shift
     IFS="$delim" read -r "$@" <<< "$arg"
