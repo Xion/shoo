@@ -19,7 +19,7 @@ shoo() {
 
 # Utilities
 
-FAIL=1023  # arbitrary
+FAIL=37  # arbitrary
 alias fail='return $FAIL'
 alias assertExitSuccess='[[ $? -eq 0 ]] || fail'
 alias assertExitFailure='! [[ $? -eq 0 ]] || fail'
@@ -56,17 +56,32 @@ test_unknown_option() {
 
 _run_tests() {
     local file="$1"
+
+    local failout=""
+    local errout=""
     for func in $(_list_test_functions "$file"); do
         _logf "Running %s..." "$func"
         "$func" 2>/dev/null
         case $? in
             0)      _logf " PASS\n" ;;
-            $FAIL)  _logf " FAIL\n" ;;
-            *)      _logf " ERROR\n" ;;
+            $FAIL)
+                _logf " FAIL\n"
+                failout=$(printf '%s* %s:\n%s\n\n' "$failout" "$func" "$out")
+                ;;
+            *)
+                _logf " ERROR\n"
+                errout=$(printf '%s* %s:\n%s\n\n' "$errout" "$func" "$out")
+                ;;
         esac
-        # TODO(xion): gather failed/error'd tests' output to display at the end
         # TODO(xion): implement --failfast
     done
+
+    if [[ -n "$failout" ]]; then
+        printf '\nTest failures:\n%s' "$failout"
+    fi
+    if [[ -n "$errout" ]]; then
+        printf '\nTest errors:\n%s' "$errout"
+    fi
 }
 
 _list_test_functions() {
