@@ -67,7 +67,7 @@ parse_cmdline() {
                 exit 0
                 ;;
 
-            # TODO(xion): prevent commands from being supplied multiple times
+            # TODO(xion): prevent options from being supplied multiple times
 
             --pid | -p)     pid=$2; shift 2 ;;
             --pid=*)        pid=${1#*=}; shift ;;
@@ -152,7 +152,9 @@ kill_specific_process() {
 }
 
 release_resource() {
-    local procs=$(list_processes_from_resource)
+    local procs
+    procs=$(list_processes_from_resource)
+    [ $? -eq 0 ] || exit 1
 
     # filter it through --name/--pid constraints, if any
     local filtered=true

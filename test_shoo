@@ -87,6 +87,17 @@ test_both_pid_and_processname() {
     contains "$(lowercase "$out")" 'either' || fail
 }
 
+test_unknown_resource_type() {
+    local type_=foo
+    local name=bar
+
+    out=$(shoo --from $type_:$name)
+    assertExitFailure
+
+    contains "$(lowercase "$out")" 'unknown resource type' || fail
+    contains "$out" $type_ || fail
+}
+
 
 # Test runner
 
@@ -136,4 +147,4 @@ _logf() {
     printf >&2 "$@"
 }
 
-_run_tests "$0"
+_run_tests "${BASH_SOURCE-$0}"
