@@ -98,6 +98,22 @@ test_unknown_resource_type() {
     contains "$out" $type_ || fail
 }
 
+test_infer_tcp_resource() {
+    out=$(shoo --from 4242)
+    assertExitSuccess
+
+    contains "$(lowercase "$out")" 'assuming' || fail
+    contains "$out" 'tcp' || fail
+}
+
+test_infer_file_resource() {
+    out=$(shoo --from ./foo)
+    assertExitSuccess
+
+    contains "$(lowercase "$out")" 'assuming' || fail
+    contains "$out" 'file' || fail
+}
+
 
 # Test runner
 

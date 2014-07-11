@@ -205,6 +205,10 @@ list_processes_from_resource() {
             exit 1
             ;;
     esac
+
+    # suppress the exit code of `lsof`
+    # that may be negative when no processes were found
+    return 0
 }
 
 
