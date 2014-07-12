@@ -120,29 +120,35 @@ test_infer_file_resource() {
 _run_tests() {
     local file="$1"
 
-    local failout=""
-    local errout=""
+    local passcount=0 ; local failcount=0 ; local errcount=0
+    local failout="" ; local errout=""
     for func in $(_list_test_functions "$file"); do
         _logf "Running %s..." "$func"
         "$func" 2>/dev/null
         case $? in
-            0)      _logf " PASS\n" ;;
+            0)
+                _logf " PASS\n"
+                ((++passcount))
+                ;;
             $FAIL)
                 _logf " FAIL\n"
+                ((++failcount))
                 failout=$(printf '%s* %s:\n%s\n\n' "$failout" "$func" "$out")
                 ;;
             *)
                 _logf " ERROR\n"
+                ((++errcount))
                 errout=$(printf '%s* %s:\n%s\n\n' "$errout" "$func" "$out")
                 ;;
         esac
         # TODO(xion): implement --failfast
     done
 
-    if [[ -n "$failout" ]]; then
+    _logf "\n$passcount passed, $failcount failed, $errcount errors\n"
+    if [[ "$failcount" -gt 0 ]]; then
         printf '\nTest failures:\n%s' "$failout"
     fi
-    if [[ -n "$errout" ]]; then
+    if [[ "$errcount" -gt 0 ]]; then
         printf '\nTest errors:\n%s' "$errout"
     fi
 }
