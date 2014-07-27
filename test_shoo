@@ -51,7 +51,7 @@ test_unknown_option() {
     contains "$(lowercase "$out")" 'unknown option' || fail
 }
 
-test_duplicate_pid() {
+test_duplicate_pid__flag_and_positional() {
     local pid1=42
     local pid2=43
 
@@ -64,11 +64,37 @@ test_duplicate_pid() {
     contains "$out" $pid2 || fail
 }
 
-test_duplicate_processname() {
+test_duplicate_pid__two_flags() {
+    local pid1=42
+    local pid2=43
+
+    out=$(shoo --pid $pid1 --pid $pid2)
+    assertExitFailure
+
+    contains "$(lowercase "$out")" 'duplicate' || fail
+    contains "$out" 'PID' || fail
+    contains "$out" $pid1 || fail
+    contains "$out" $pid2 || fail
+}
+
+test_duplicate_processname__flag_and_positional() {
     local pname1=foo
     local pname2=bar
 
     out="$(shoo --name $pname1 $pname2)"
+    assertExitFailure
+
+    contains "$(lowercase "$out")" 'duplicate' || fail
+    contains "$out" 'process name' || fail
+    contains "$out" $pname1 || fail
+    contains "$out" $pname2 || fail
+}
+
+test_duplicate_processname__two_flags() {
+    local pname1=foo
+    local pname2=bar
+
+    out="$(shoo --name $pname1 --name $pname2)"
     assertExitFailure
 
     contains "$(lowercase "$out")" 'duplicate' || fail
@@ -96,6 +122,30 @@ test_unknown_resource_type() {
 
     contains "$(lowercase "$out")" 'unknown resource type' || fail
     contains "$out" $type_ || fail
+}
+
+test_duplicate_resource__flag_and_positional() {
+    local from1="tcp:4242"
+    local from2="./foo"  # positional resource can only be a file path
+
+    out=$(shoo --from $from1 $from2)
+
+    contains "$(lowercase "$out")" 'duplicate' || fail
+    contains "$out" 'resource' || fail
+    contains "$out" "$from1" || fail
+    contains "$out" "$from2" || fail
+}
+
+test_duplicate_resource__flag_and_positional() {
+    local from1="tcp:4242"
+    local from2="tcp:31337"
+
+    out=$(shoo --from $from1 --from $from2)
+
+    contains "$(lowercase "$out")" 'duplicate' || fail
+    contains "$out" 'resource' || fail
+    contains "$out" "$from1" || fail
+    contains "$out" "$from2" || fail
 }
 
 test_infer_tcp_resource() {

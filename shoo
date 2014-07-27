@@ -20,7 +20,7 @@ SIGNALS="int term kill 2 15 9"
 
 # Variables storing command line input data
 pname=""
-pid=0
+pid=""
 from=""
 with=""
 
@@ -67,19 +67,17 @@ parse_cmdline() {
                 exit 0
                 ;;
 
-            # TODO(xion): prevent options from being supplied multiple times
+            --pid | -p)     store_input 'PID' 'pid' $2; shift 2;;
+            --pid=*)        store_input 'PID' 'pid' ${1#*=}; shift;;
 
-            --pid | -p)     pid=$2; shift 2 ;;
-            --pid=*)        pid=${1#*=}; shift ;;
+            --name | -n)    store_input 'process name' 'pname' $2; shift 2;;
+            --name=*)       store_input 'process name' 'pname' ${1#*=}; shift;;
 
-            --name | -n)    pname=$2; shift 2 ;;
-            --name=*)       pname=${1#*=}; shift ;;
+            --from | -f)    store_input 'resource' 'from' $2; shift 2;;
+            --from=*)       store_input 'resource' 'from' ${1#*=}; shift;;
 
-            --from | -f)    from=$2; shift 2 ;;
-            --from=*)       from=${1#*=}; shift ;;
-
-            --with | -w)    with=$2; shift 2 ;;
-            --with=*)       with=${1#*=}; shift ;;
+            --with | -w)    store_input 'signal' 'with' $2; shift 2;;
+            --with=*)       store_input 'signal' 'with' ${1#*=}; shift;;
 
             -*) warnf 'Unknown option: %s (ignored)' "$1"; shift ;;
             *)
@@ -89,25 +87,13 @@ parse_cmdline() {
                 # this is typically a process name or PID
                 local arg="$1"
                 if is_int "$arg"; then
-                    if [[ "$pid" -eq 0 ]]; then
-                        pid="$arg"
-                    else
-                        errf 'Duplicate value for %s: %s and %s' \
-                            'PID' "$pid" "$arg"
-                        exit 1
-                    fi
+                    store_input 'PID' 'pid' "$arg"
                 else
                     if contains "$arg" '/' && [[ -z "$from" ]]; then
                         infof "Interpreting '%s' as --from=file:%s" "$arg"
-                        from="file:$arg"
+                        store_input 'resource' 'from' "file:$arg"
                     else
-                        if [[ -z "$pname" ]]; then
-                            pname="$arg"
-                        else
-                            errf 'Duplicate value for %s: "%s" and "%s"' \
-                                'process name' "$pname" "$arg"
-                            exit 1
-                        fi
+                        store_input 'process name' 'pname' "$arg"
                     fi
                 fi
 
@@ -117,15 +103,29 @@ parse_cmdline() {
     done
 }
 
+store_input() {
+    local name="$1"
+    local var="$2"
+    local value="$3"
+
+    eval current=\$$var
+    if [[ -z "$current" ]]; then
+        eval $var="$value"
+    else
+        errf 'Duplicate value for %s: %s and %s' "$name" "$current" "$value"
+        exit 1
+    fi
+}
+
 validate_input() {
     # if nothing was supplied, display usage help and quit
-    if [[ -z "$pname" ]] && [[ "$pid" -eq 0 ]] && [[ -z "$from" ]]; then
+    if [[ -z "$pname" ]] && [[ -z "$pid" ]] && [[ -z "$from" ]]; then
         usage
         exit 1
     fi
 
     # either a process name or PID can be supplied, but not both
-    if [[ -n "$pname" ]] && [[ "$pid" -ne 0 ]]; then
+    if [[ -n "$pname" ]] && [[ -n "$pid" ]]; then
         errf 'Specify either a process name or PID, not both'
         exit 1
     fi
@@ -160,7 +160,7 @@ release_resource() {
     local filtered=true
     if [[ -n "$pname" ]]; then
         procs=$(intersection "$procs" $(pgrep "$pname"))
-    elif [[ "$pid" -gt 0 ]]; then
+    elif [[ -n "$pid" ]]; then
         procs=$(intersection "$procs" "$pid")
     else
         filtered=false
