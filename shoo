@@ -29,12 +29,13 @@ kill_flags=""
 
 
 main() {
+    read_rcfiles
     parse_cmdline "$@"
     validate_input
 
     # format the signal flag to kill/killall
     if [[ -n "$with" ]]; then
-        kill_flags="-$with"
+        kill_flags="-$(uppercase "$with")"
     else
         kill_flags="-9"  # NO REMORSE
     fi
@@ -44,6 +45,53 @@ main() {
         kill_specific_process
     else
         release_resource
+    fi
+}
+
+
+# Reading .shoorc
+
+read_rcfiles() {
+    local file
+
+    # find .shoorc files in current directory and its parents
+    local dir=$(pwd)
+    while :
+    do
+        file="$dir/.shoorc"
+        if [[ -f "$file" ]] && [[ -r "$file" ]]; then
+            read_rcfile "$file"
+        fi
+
+        # ascent the directory tree, if not already at the top
+        local parent=$(dirname "$dir")
+        [[ "$parent" != "$dir" ]] || break
+        dir="$parent"
+    done
+
+    # read the one in user's $HOME, if any
+    # (note that if we already did that in the loop above,
+    #  this won't change any of the previously read values)
+    file="~/.shoorc"
+    if [[ -f "$file" ]]; then
+        read_rcfile "$file"
+    fi
+}
+
+read_rcfile() {
+    local path="$1"
+    read_rcfile_value "$path" 'with' 'with'
+}
+
+read_rcfile_value() {
+    local path="$1"
+    local key="$2"
+    local target="$3"
+
+    eval current=\$$target
+    if [[ -z "$current" ]]; then
+        local value=$(sed -n "s/ *$key *= *\([^ ]*.*\)/\1/p" < "$path")
+        eval $target="$value"
     fi
 }
 
@@ -241,6 +289,10 @@ contains() {
     local string="$1"
     local substring="$2"
     [ "${string#*$substring}" != "$string" ]
+}
+
+uppercase() {
+    echo "$1" | tr '[:lower:]' '[:upper:]'
 }
 
 lowercase() {
