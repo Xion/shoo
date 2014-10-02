@@ -28,7 +28,7 @@ alias assertExitFailure='! [[ $? -eq 0 ]] || fail'
 # Tests
 
 # Variable to assign tested command output's to
-# (for asssertions on the command's exit code to work, it must be global)
+# (for assertions on the command's exit code to work, it must be global)
 out=""
 
 test_no_args() {
@@ -136,7 +136,7 @@ test_duplicate_resource__flag_and_positional() {
     contains "$out" "$from2" || fail
 }
 
-test_duplicate_resource__flag_and_positional() {
+test_duplicate_resource__two_flags() {
     local from1="tcp:4242"
     local from2="tcp:31337"
 
